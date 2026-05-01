@@ -3,186 +3,256 @@ let user = JSON.parse(localStorage.getItem('user'));
 
 const API_BASE = '/api';
 
-// DOM Elements
-const authContainer = document.getElementById('auth-container');
-const dashboardContainer = document.getElementById('dashboard-container');
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const modalOverlay = document.getElementById('modal-overlay');
-const transCategory = document.getElementById('trans-category');
+// Global Chart instances
+let catChart = null;
+let monChart = null;
+let reportChart = null;
 
-// Navigation
-document.getElementById('show-register').addEventListener('click', () => {
-    loginForm.classList.add('hidden');
-    registerForm.classList.remove('hidden');
+// DOM Elements - Using a helper to ensure they exist
+const getEl = (id) => document.getElementById(id);
+
+// Initialization
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
 });
 
-document.getElementById('show-login').addEventListener('click', () => {
-    registerForm.classList.add('hidden');
-    loginForm.classList.remove('hidden');
-});
+function initApp() {
+    // Navigation (Login/Register toggle)
+    const showRegisterLink = getEl('show-register');
+    const showLoginLink = getEl('show-login');
+    const loginForm = getEl('login-form');
+    const registerForm = getEl('register-form');
 
-// Initialize
-if (token) {
-    showDashboard();
-}
-
-// Authentication Helper
-async function apiFetch(endpoint, options = {}) {
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        ...options.headers
-    };
-
-    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-    
-    if (res.status === 401) {
-        localStorage.clear();
-        location.reload();
-        return null;
-    }
-    
-    return res.json();
-}
-
-// Login logic
-document.getElementById('login-btn').addEventListener('click', async (e) => {
-    const btn = e.target;
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-
-    btn.classList.add('loading');
-    try {
-        const data = await apiFetch('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password })
+    if (showRegisterLink && loginForm && registerForm) {
+        showRegisterLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
         });
-
-        if (data && data.token) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            token = data.token;
-            user = data.user;
-            showDashboard();
-        } else if (data) {
-            alert(data.error || 'Login failed');
-        }
-    } finally {
-        btn.classList.remove('loading');
     }
-});
 
-// Register logic
-document.getElementById('register-btn').addEventListener('click', async (e) => {
-    const btn = e.target;
-    const name = document.getElementById('reg-name').value;
-    const email = document.getElementById('reg-email').value;
-    const password = document.getElementById('reg-password').value;
-
-    btn.classList.add('loading');
-    try {
-        const data = await apiFetch('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ name, email, password })
+    if (showLoginLink && loginForm && registerForm) {
+        showLoginLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            registerForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
         });
+    }
 
-        if (data && data.token) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            token = data.token;
-            user = data.user;
+    // Dashboard Navigation Tabs
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
             
-            // Bonus: Create default categories for new user
-            await createDefaultCategories();
-            showDashboard();
-        } else if (data) {
-            alert(data.error || 'Registration failed');
-        }
-    } finally {
-        btn.classList.remove('loading');
-    }
-});
+            btn.classList.add('active');
+            const tabId = btn.getAttribute('data-tab');
+            const tabEl = getEl(`${tabId}-tab`);
+            if (tabEl) tabEl.classList.remove('hidden');
 
-async function createDefaultCategories() {
-    const defaults = [
-        { name: 'Salary', type: 'INCOME' },
-        { name: 'Food', type: 'EXPENSE' },
-        { name: 'Rent', type: 'EXPENSE' },
-        { name: 'Entertainment', type: 'EXPENSE' }
-    ];
-    for (const cat of defaults) {
-        await apiFetch('/categories', {
-            method: 'POST',
-            body: JSON.stringify(cat)
+            if (tabId === 'budgets') loadBudgets();
+            if (tabId === 'reports') loadReports();
+        });
+    });
+
+    // Logout
+    const logoutBtn = getEl('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.clear();
+            location.reload();
         });
     }
-}
 
-document.getElementById('logout-btn').addEventListener('click', () => {
-    localStorage.clear();
-    location.reload();
-});
-
-// Dashboard Actions
-document.getElementById('open-modal-btn').addEventListener('click', () => {
-    modalOverlay.classList.remove('hidden');
-    loadCategories();
-});
-
-document.getElementById('close-modal').addEventListener('click', () => {
-    modalOverlay.classList.add('hidden');
-});
-
-async function loadCategories() {
-    const categories = await apiFetch('/categories');
-    if (!categories) return;
-    transCategory.innerHTML = categories.map(c => `
-        <option value="${c.id}">${c.name} (${c.type})</option>
-    `).join('');
-}
-
-document.getElementById('transaction-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
-    const payload = {
-        amount: parseFloat(document.getElementById('trans-amount').value),
-        type: document.getElementById('trans-type').value,
-        categoryId: document.getElementById('trans-category').value,
-        description: document.getElementById('trans-desc').value,
-        date: document.getElementById('trans-date').value || new Date().toISOString()
-    };
-
-    btn.classList.add('loading');
-    try {
-        const data = await apiFetch('/transactions', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
-        if (data && data.id) {
-            modalOverlay.classList.add('hidden');
-            document.getElementById('transaction-form').reset();
-            await showDashboard();
-        } else if (data) {
-            alert(data.error || 'Failed to save');
-        }
-    } finally {
-        btn.classList.remove('loading');
+    // Initial State
+    if (token && user) {
+        showDashboard();
+    } else {
+        const authContainer = getEl('auth-container');
+        if (authContainer) authContainer.classList.remove('hidden');
     }
-});
 
-// Dashboard Rendering
+    // Event Listeners for Forms
+    setupFormListeners();
+}
+
+function setupFormListeners() {
+    // Login
+    const loginBtn = getEl('login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', async (e) => {
+            const email = getEl('login-email').value;
+            const password = getEl('login-password').value;
+
+            if (!email || !password) return alert('Please enter credentials');
+
+            loginBtn.classList.add('loading');
+            try {
+                const data = await apiFetch('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (data && data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    token = data.token;
+                    user = data.user;
+                    showDashboard();
+                } else if (data) {
+                    alert(data.error || 'Login failed');
+                }
+            } finally {
+                loginBtn.classList.remove('loading');
+            }
+        });
+    }
+
+    // Register
+    const registerBtn = getEl('register-btn');
+    if (registerBtn) {
+        registerBtn.addEventListener('click', async (e) => {
+            const name = getEl('reg-name').value;
+            const email = getEl('reg-email').value;
+            const password = getEl('reg-password').value;
+
+            if (!name || !email || !password) return alert('Please fill all fields');
+
+            registerBtn.classList.add('loading');
+            try {
+                const data = await apiFetch('/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                if (data && data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    token = data.token;
+                    user = data.user;
+                    await createDefaultCategories();
+                    showDashboard();
+                } else if (data) {
+                    alert(data.error || 'Registration failed');
+                }
+            } finally {
+                registerBtn.classList.remove('loading');
+            }
+        });
+    }
+
+    // Transaction Form
+    const transForm = getEl('transaction-form');
+    if (transForm) {
+        transForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const payload = {
+                amount: parseFloat(getEl('trans-amount').value),
+                type: getEl('trans-type').value,
+                categoryId: getEl('trans-category').value,
+                description: getEl('trans-desc').value,
+                date: getEl('trans-date').value || new Date().toISOString()
+            };
+
+            if (payload.amount <= 0) return alert('Amount must be positive');
+
+            btn.classList.add('loading');
+            try {
+                const data = await apiFetch('/transactions', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                if (data && data.id) {
+                    getEl('modal-overlay').classList.add('hidden');
+                    transForm.reset();
+                    await showDashboard();
+                } else if (data) {
+                    alert(data.error || 'Failed to save');
+                }
+            } finally {
+                btn.classList.remove('loading');
+            }
+        });
+    }
+
+    // Budget Form
+    const budgetForm = getEl('budget-form');
+    if (budgetForm) {
+        budgetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const payload = {
+                categoryId: getEl('budget-category').value,
+                amount: parseFloat(getEl('budget-amount').value),
+                month: parseInt(getEl('budget-month').value),
+                year: parseInt(getEl('budget-year').value)
+            };
+
+            if (payload.amount <= 0) return alert('Amount must be positive');
+
+            btn.classList.add('loading');
+            try {
+                const data = await apiFetch('/budgets', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                if (data && data.id) {
+                    getEl('budget-modal-overlay').classList.add('hidden');
+                    budgetForm.reset();
+                    loadBudgets();
+                } else if (data) {
+                    alert(data.error || 'Failed to set budget');
+                }
+            } finally {
+                btn.classList.remove('loading');
+            }
+        });
+    }
+
+    // Modal Overlays
+    const openModalBtn = getEl('open-modal-btn');
+    if (openModalBtn) {
+        openModalBtn.addEventListener('click', () => {
+            getEl('modal-overlay').classList.remove('hidden');
+            loadCategories('trans-category');
+        });
+    }
+
+    const openBudgetModalBtn = getEl('open-budget-modal-btn');
+    if (openBudgetModalBtn) {
+        openBudgetModalBtn.addEventListener('click', () => {
+            getEl('budget-modal-overlay').classList.remove('hidden');
+            loadCategories('budget-category', 'EXPENSE');
+        });
+    }
+
+    const closeModalBtn = getEl('close-modal');
+    if (closeModalBtn) closeModalBtn.addEventListener('click', () => getEl('modal-overlay').classList.add('hidden'));
+
+    const closeBudgetModalBtn = getEl('close-budget-modal');
+    if (closeBudgetModalBtn) closeBudgetModalBtn.addEventListener('click', () => getEl('budget-modal-overlay').classList.add('hidden'));
+}
+
 async function showDashboard() {
-    authContainer.classList.add('hidden');
-    dashboardContainer.classList.remove('hidden');
-    document.getElementById('user-name').innerText = `Welcome, ${user.name}`;
+    const authContainer = getEl('auth-container');
+    const dashboardContainer = getEl('dashboard-container');
     
+    if (authContainer) authContainer.classList.add('hidden');
+    if (dashboardContainer) dashboardContainer.classList.remove('hidden');
+    
+    if (user && getEl('user-name')) {
+        getEl('user-name').innerText = `Welcome, ${user.name}`;
+    }
+
+    // Load Overview Data
     const summary = await apiFetch('/dashboard/summary');
     if (summary) {
-        document.getElementById('total-balance').innerText = `$${parseFloat(summary.balance).toFixed(2)}`;
-        document.getElementById('total-income').innerText = `+$${parseFloat(summary.totalIncome).toFixed(2)}`;
-        document.getElementById('total-expense').innerText = `-$${parseFloat(summary.totalExpenses).toFixed(2)}`;
+        if (getEl('total-balance')) getEl('total-balance').innerText = `$${parseFloat(summary.balance).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        if (getEl('total-income')) getEl('total-income').innerText = `+$${parseFloat(summary.totalIncome).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        if (getEl('total-expense')) getEl('total-expense').innerText = `-$${parseFloat(summary.totalExpenses).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         renderCategoryChart(summary.categorySummary);
     }
 
@@ -191,25 +261,146 @@ async function showDashboard() {
 
     const transactions = await apiFetch('/transactions');
     if (transactions) {
-        const list = document.getElementById('transaction-list');
-        list.innerHTML = transactions.map(t => `
-            <tr style="border-bottom: 1px solid #1e293b;">
-                <td style="padding: 1rem 0;">${new Date(t.date).toLocaleDateString()}</td>
-                <td>${t.category ? t.category.name : 'Unknown'}</td>
-                <td>${t.description || '-'}</td>
-                <td style="color: ${t.type === 'INCOME' ? 'var(--income)' : 'var(--expense)'}">${t.type}</td>
-                <td style="text-align: right; font-weight: bold;">$${parseFloat(t.amount).toFixed(2)}</td>
-            </tr>
+        const list = getEl('transaction-list');
+        if (list) {
+            list.innerHTML = transactions.map(t => `
+                <tr>
+                    <td>${new Date(t.date).toLocaleDateString()}</td>
+                    <td>${t.category ? t.category.name : 'Unknown'}</td>
+                    <td>${t.description || '-'}</td>
+                    <td style="color: ${t.type === 'INCOME' ? 'var(--income)' : 'var(--expense)'}; font-weight: 600;">${t.type}</td>
+                    <td style="text-align: right; font-weight: bold;">$${parseFloat(t.amount).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+async function apiFetch(endpoint, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...options.headers
+    };
+
+    try {
+        const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+        if (res.status === 401) {
+            localStorage.clear();
+            location.reload();
+            return null;
+        }
+        return res.json();
+    } catch (e) {
+        console.error('Fetch error:', e);
+        return null;
+    }
+}
+
+async function loadCategories(selectId, filterType = null) {
+    const categories = await apiFetch('/categories');
+    if (!categories) return;
+    
+    let filtered = categories;
+    if (filterType) filtered = categories.filter(c => c.type === filterType);
+
+    const select = getEl(selectId);
+    if (select) {
+        select.innerHTML = filtered.map(c => `
+            <option value="${c.id}">${c.name}${!filterType ? ` (${c.type})` : ''}</option>
         `).join('');
     }
 }
 
-// Chart Helper Functions
-let catChart = null;
-let monChart = null;
+async function loadBudgets() {
+    const budgets = await apiFetch('/budgets');
+    if (!budgets) return;
+
+    const list = getEl('budget-list');
+    if (!list) return;
+
+    if (budgets.length === 0) {
+        list.innerHTML = '<div class="card" style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">No budgets set yet. Start by setting a goal!</div>';
+        return;
+    }
+
+    list.innerHTML = budgets.map(b => {
+        const progress = Math.min(b.progress, 100);
+        let statusClass = '';
+        if (progress > 90) statusClass = 'danger';
+        else if (progress > 70) statusClass = 'warning';
+
+        return `
+            <div class="card budget-card">
+                <div class="budget-info">
+                    <span class="budget-label">${b.category.name}</span>
+                    <span class="budget-value">$${parseFloat(b.spent).toFixed(2)} / $${parseFloat(b.amount).toFixed(2)}</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar ${statusClass}" style="width: ${progress}%"></div>
+                </div>
+                <div class="budget-status">
+                    ${b.remaining >= 0 
+                        ? `$${parseFloat(b.remaining).toFixed(2)} remaining` 
+                        : `<span style="color: var(--expense)">$${Math.abs(b.remaining).toFixed(2)} over budget</span>`}
+                </div>
+                <button onclick="deleteBudget('${b.id}')" style="background: transparent; border: none; color: #ef4444; font-size: 0.8rem; margin-top: 1rem; cursor: pointer; opacity: 0.6;">Delete</button>
+            </div>
+        `;
+    }).join('');
+}
+
+window.deleteBudget = async (id) => {
+    if (!confirm('Are you sure?')) return;
+    await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
+    loadBudgets();
+};
+
+async function loadReports() {
+    const yearEl = getEl('report-year');
+    if (!yearEl) return;
+    const year = yearEl.value;
+    const data = await apiFetch(`/dashboard/reports/monthly?year=${year}`);
+    if (!data) return;
+
+    const canvas = getEl('reportMonthlyChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (reportChart) reportChart.destroy();
+    
+    reportChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.month),
+            datasets: [
+                { label: 'Income', data: data.map(d => d.income), backgroundColor: '#10b981', borderRadius: 6 },
+                { label: 'Expense', data: data.map(d => d.expense), backgroundColor: '#ef4444', borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+            },
+            plugins: { legend: { position: 'top', labels: { color: '#f8fafc', font: { family: 'Outfit' } } } }
+        }
+    });
+
+    const totalIncome = data.reduce((sum, d) => sum + d.income, 0);
+    const totalExpense = data.reduce((sum, d) => sum + d.expense, 0);
+    const savings = totalIncome - totalExpense;
+    const savingsRate = totalIncome > 0 ? (savings / totalIncome) * 100 : 0;
+
+    if (getEl('annual-savings')) getEl('annual-savings').innerText = `$${savings.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    if (getEl('savings-rate')) getEl('savings-rate').innerText = `${savingsRate.toFixed(1)}%`;
+}
 
 function renderCategoryChart(summary) {
-    const ctx = document.getElementById('categoryChart').getContext('2d');
+    const canvas = getEl('categoryChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (catChart) catChart.destroy();
     const expenses = summary.filter(s => s.type === 'EXPENSE');
     catChart = new Chart(ctx, {
@@ -218,31 +409,56 @@ function renderCategoryChart(summary) {
             labels: expenses.map(s => s.categoryName),
             datasets: [{
                 data: expenses.map(s => s.totalAmount),
-                backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+                backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'],
+                borderWidth: 0
             }]
         },
-        options: { plugins: { legend: { labels: { color: '#94a3b8' } } } }
+        options: { 
+            cutout: '70%',
+            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Outfit' } } } } 
+        }
     });
 }
 
 function renderMonthlyChart(data) {
-    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    const canvas = getEl('monthlyChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (monChart) monChart.destroy();
     monChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: data.map(d => d.month.substring(0, 3)),
             datasets: [
-                { label: 'Income', data: data.map(d => d.income), backgroundColor: '#22c55e' },
-                { label: 'Expense', data: data.map(d => d.expense), backgroundColor: '#ef4444' }
+                { label: 'Income', data: data.map(d => d.income), backgroundColor: '#10b981', borderRadius: 4 },
+                { label: 'Expense', data: data.map(d => d.expense), backgroundColor: '#ef4444', borderRadius: 4 }
             ]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             scales: {
-                y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                x: { ticks: { color: '#94a3b8' } }
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
             },
-            plugins: { legend: { labels: { color: '#94a3b8' } } }
+            plugins: { legend: { display: false } }
         }
     });
+}
+
+async function createDefaultCategories() {
+    const defaults = [
+        { name: 'Salary', type: 'INCOME' },
+        { name: 'Food', type: 'EXPENSE' },
+        { name: 'Rent', type: 'EXPENSE' },
+        { name: 'Entertainment', type: 'EXPENSE' },
+        { name: 'Shopping', type: 'EXPENSE' },
+        { name: 'Utilities', type: 'EXPENSE' }
+    ];
+    for (const cat of defaults) {
+        await apiFetch('/categories', {
+            method: 'POST',
+            body: JSON.stringify(cat)
+        });
+    }
 }

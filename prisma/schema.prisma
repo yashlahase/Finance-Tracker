@@ -15,6 +15,7 @@ model User {
   createdAt    DateTime      @default(now())
   categories   Category[]
   transactions Transaction[]
+  budgets      Budget[]
 
   @@map("users")
 }
@@ -31,6 +32,7 @@ model Category {
   userId       String
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budgets      Budget[]
 
   @@map("categories")
 }
@@ -47,4 +49,19 @@ model Transaction {
   category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@map("transactions")
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  amount     Decimal  @db.Decimal(15, 2)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month      Int      // 1-12
+  year       Int
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, categoryId, month, year])
+  @@map("budgets")
 }

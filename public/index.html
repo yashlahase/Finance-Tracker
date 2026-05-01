@@ -60,6 +60,15 @@
             <button class="btn logout-btn" id="logout-btn">Logout</button>
         </header>
 
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-btn active" data-tab="overview">Overview</button>
+            <button class="nav-btn" data-tab="budgets">Budgets</button>
+            <button class="nav-btn" data-tab="reports">Reports</button>
+        </nav>
+
+        <div id="overview-tab" class="tab-content">
+
         <!-- Summary Cards -->
         <div class="stats-grid">
             <div class="card stat-card">
@@ -109,9 +118,46 @@
                         <!-- Injected by JS -->
                     </tbody>
                 </table>
+        </div> <!-- End Overview Tab -->
+
+        <!-- Budgets Tab -->
+        <div id="budgets-tab" class="tab-content hidden">
+            <div class="section-header">
+                <h2>Monthly Budgets</h2>
+                <button class="btn" id="open-budget-modal-btn">+ Set Budget</button>
+            </div>
+            <div class="budget-grid" id="budget-list">
+                <!-- Budgets injected here -->
             </div>
         </div>
-    </div>
+
+        <!-- Reports Tab -->
+        <div id="reports-tab" class="tab-content hidden">
+            <div class="section-header">
+                <h2>Financial Reports</h2>
+                <div class="report-filters">
+                    <select id="report-year">
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card chart-card large-chart">
+                <h3>Income vs Expenses (Monthly)</h3>
+                <div style="height: 400px;"><canvas id="reportMonthlyChart"></canvas></div>
+            </div>
+            <div class="stats-grid" style="margin-top: 2rem;">
+                 <div class="card stat-card">
+                    <h3>Annual Savings</h3>
+                    <div class="value" id="annual-savings">$0.00</div>
+                </div>
+                <div class="card stat-card">
+                    <h3>Savings Rate</h3>
+                    <div class="value" id="savings-rate">0%</div>
+                </div>
+            </div>
+        </div>
+    </div> <!-- End Dashboard Container -->
 
     <!-- Add Transaction Modal -->
     <div id="modal-overlay" class="hidden">
@@ -124,7 +170,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Amount ($)</label>
-                        <input type="number" id="trans-amount" step="0.01" required placeholder="0.00">
+                        <input type="number" id="trans-amount" step="0.01" min="0.01" required placeholder="0.00">
                     </div>
                     <div class="form-group">
                         <label>Type</label>
@@ -149,6 +195,52 @@
                     <input type="date" id="trans-date">
                 </div>
                 <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">Save Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Budget Modal -->
+    <div id="budget-modal-overlay" class="hidden">
+        <div class="modal-card card">
+            <div class="modal-header">
+                <h2>Set Budget</h2>
+                <span id="close-budget-modal" class="close-icon">✕</span>
+            </div>
+            <form id="budget-form">
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="budget-category" required>
+                        <!-- Loaded by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Monthly Limit ($)</label>
+                    <input type="number" id="budget-amount" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Month</label>
+                        <select id="budget-month">
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Year</label>
+                        <input type="number" id="budget-year" value="2026" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">Set Goal</button>
             </form>
         </div>
     </div>

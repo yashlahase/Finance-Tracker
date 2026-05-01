@@ -4,9 +4,9 @@ const createTransaction = async (req, res) => {
   try {
     const { amount, type, categoryId, date, description } = req.body;
 
-    // Validation: amount must be positive unless it's a refund (negative) in expenses
-    if (amount < 0 && type === 'INCOME') {
-      return res.status(400).json({ error: 'Income amount cannot be negative' });
+    // Validation: amount must be positive
+    if (amount <= 0) {
+      return res.status(400).json({ error: 'Transaction amount must be greater than zero' });
     }
 
     // Check if category exists and belongs to user
@@ -66,8 +66,8 @@ const updateTransaction = async (req, res) => {
     const { amount, type, categoryId, date, description } = req.body;
 
     // Validation
-    if (amount < 0 && type === 'INCOME') {
-      return res.status(400).json({ error: 'Income amount cannot be negative' });
+    if (amount <= 0) {
+      return res.status(400).json({ error: 'Transaction amount must be greater than zero' });
     }
 
     const transaction = await prisma.transaction.updateMany({
