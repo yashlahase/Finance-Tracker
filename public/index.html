@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceFlow | Pro Finance Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Auth Section -->
+    <div id="auth-container" class="container">
+        <div class="auth-form" id="login-form">
+            <h1>FinanceFlow</h1>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Log in to your financial dashboard</p>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="login-email" placeholder="name@company.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="••••••••">
+            </div>
+            <button class="btn" id="login-btn" style="width: 100%; margin-top: 1rem;">Sign In</button>
+            <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem;">
+                New here? <a href="#" id="show-register" style="color: var(--primary); font-weight: 600;">Create an account</a>
+            </p>
+        </div>
+
+        <div class="auth-form hidden" id="register-form">
+            <h1>Join FinanceFlow</h1>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Start tracking your wealth today</p>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="reg-name" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="reg-email" placeholder="name@company.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="reg-password" placeholder="••••••••">
+            </div>
+            <button class="btn" id="register-btn" style="width: 100%; margin-top: 1rem;">Get Started</button>
+            <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem;">
+                Already have an account? <a href="#" id="show-login" style="color: var(--primary); font-weight: 600;">Log In</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-container" class="container hidden">
+        <header>
+            <div class="logo-area">
+                <h1>FinanceFlow</h1>
+                <span id="user-name" style="color: var(--text-muted); font-size: 0.9rem;"></span>
+            </div>
+            <button class="btn logout-btn" id="logout-btn">Logout</button>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="stats-grid">
+            <div class="card stat-card">
+                <h3>Total Balance</h3>
+                <div class="value" id="total-balance">$0.00</div>
+            </div>
+            <div class="card stat-card">
+                <h3>Total Income</h3>
+                <div class="value income" id="total-income">+$0.00</div>
+            </div>
+            <div class="card stat-card">
+                <h3>Total Expenses</h3>
+                <div class="value expense" id="total-expense">-$0.00</div>
+            </div>
+        </div>
+
+        <!-- Charts Area -->
+        <div class="charts-container">
+            <div class="card chart-card">
+                <h3>Monthly Trends</h3>
+                <div style="height: 300px;"><canvas id="monthlyChart"></canvas></div>
+            </div>
+            <div class="card chart-card">
+                <h3>Expense Breakdown</h3>
+                <div style="height: 300px;"><canvas id="categoryChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="card table-card">
+            <div class="table-header">
+                <h3>Transaction History</h3>
+                <button class="btn" id="open-modal-btn">+ Add Record</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="main-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th style="text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-list">
+                        <!-- Injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Transaction Modal -->
+    <div id="modal-overlay" class="hidden">
+        <div class="modal-card card">
+            <div class="modal-header">
+                <h2>Add Transaction</h2>
+                <span id="close-modal" class="close-icon">✕</span>
+            </div>
+            <form id="transaction-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Amount ($)</label>
+                        <input type="number" id="trans-amount" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="trans-type">
+                            <option value="EXPENSE">Expense</option>
+                            <option value="INCOME">Income</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="trans-category">
+                        <!-- Loaded by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="trans-desc" placeholder="What was this for?">
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="trans-date">
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">Save Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
